@@ -76,9 +76,22 @@ class SelectorBIC(ModelSelector):
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        best_model = None
+        lowest_bic_value = float("inf")
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            hmm_model = self.base_model(num_states)
+            try:
+                logL = hmm_model.score(self.X, self.lengths)
+            except:
+                continue
+            logN = np.log(self.X.shape[0])
+            p = num_states * (num_states - 1) + 2 * self.X.shape[1] * num_states
+            bic_value = -2 * logL + p * logN
 
+            if bic_value < lowest_bic_value:
+                best_model = hmm_model
+
+        return best_model
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
@@ -105,5 +118,24 @@ class SelectorCV(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+        best_model = None
+        best_score = float("-inf")
+        n_splits_CV = min(5, len(self.sequences))
+        kf = KFold(n_splits = n_splits_CV)
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
+                                    random_state=self.random_state, verbose=False)
+            logL = 0
+            count = n_splits_CV
+            for train_index, test_index in kf.split(self.sequences):
+                train_X, train_lengths = combine_sequences(train_index, self.sequences)
+                test_X, test_lengths = combine_sequences(test_index, self.sequences)
+                try:
+                    logL += hmm_model.fit(train_X, train_lengths).score(test_X, test_lengths)
+                except:
+                    count -= 1
+
+            if count != 0 and logL / count > best_score:
+                best_model = hmm_model
+
+        return best_model
