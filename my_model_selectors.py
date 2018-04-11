@@ -89,11 +89,88 @@ class SelectorBIC(ModelSelector):
             bic_value = -2 * logL + p * logN
 
             if bic_value < lowest_bic_value:
+                lowest_bic_value = bic_value
                 best_model = hmm_model
 
         return best_model
 
-class SelectorDIC(ModelSelector):
+"""
+class SelectorDIC_1(ModelSelector):     ### PASSED THE TEST
+    ''' select best model based on Discriminative Information Criterion
+
+    Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
+    Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
+    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
+    https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
+    DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
+    '''
+
+    def select_0(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+        # TODO implement model selection based on DIC scores
+        best_num_states = None
+        highest_dic_value = float("-inf")
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+
+            likelihood_term = self.base_model(num_states).score(self.X, self.lengths)
+
+            m = len(self.words)
+            all_other_words = set(self.words.keys())
+            all_other_words.discard(self.this_word)
+
+            anti_likelihood_term = 0
+            for word in all_other_words:
+                model_selector = ModelSelector(self.words, self.hwords, word, self.n_constant, self.min_n_components, self.max_n_components, self.verbose)
+                hmm_model = model_selector.base_model(num_states)
+                try:
+                    anti_likelihood_term += hmm_model.score(model_selector.X, model_selector.lengths)
+                except:
+                    m -= 1
+            dic_value = likelihood_term - anti_likelihood_term / (m - 1)
+
+
+            if dic_value > highest_dic_value:
+                highest_dic_value = dic_value
+                best_num_states = num_states
+        if best_num_states is not None:
+            return self.base_model(best_num_states)
+
+    def select(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+        # TODO implement model selection based on DIC scores
+        best_num_states = None
+        highest_dic_value = float("-inf")
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            likelihood_term = anti_likelihood_term = 0
+            try:
+                likelihood_term = self.base_model(num_states).score(self.X, self.lengths)
+            except:
+                continue
+
+            all_other_words = set(self.words.keys())
+            m = len(all_other_words)
+            all_other_words.discard(self.this_word)
+
+            for word in all_other_words:
+                model_selector = ModelSelector(self.words, self.hwords, word, self.n_constant, self.min_n_components, self.max_n_components, self.verbose)
+                hmm_model = model_selector.base_model(num_states)
+                try:
+                    anti_likelihood_term += hmm_model.score(model_selector.X, model_selector.lengths)
+                except:
+                    m -= 1
+            dic_value = likelihood_term - anti_likelihood_term / (m - 1)
+
+
+            if dic_value > highest_dic_value:
+                highest_dic_value = dic_value
+                best_num_states = num_states
+        if best_num_states is not None:
+            return self.base_model(best_num_states)
+
+
+class SelectorDIC_2(ModelSelector):       #### PASSED THE TEST
     ''' select best model based on Discriminative Information Criterion
 
     Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
@@ -107,11 +184,120 @@ class SelectorDIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        best_num_states = None
+        highest_dic_value = float("-inf")
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+
+            try:
+                likelihood_term = self.base_model(num_states).score(self.X, self.lengths)
+            except:
+                continue
+
+            other_words = set(self.words.keys())
+            other_words.discard(self.this_word)
+
+            model_selector = lambda word: ModelSelector(self.words, self.hwords, word,
+                                                        self.n_constant, self.min_n_components,
+                                                        self.max_n_components, self.verbose)
+            try:
+                ave_anti_likelihood_term = \
+                    np.average([model_selector(word).base_model(num_states).score(
+                        model_selector(word).X, model_selector(word).lengths) for word in other_words])
+            except:
+                m = len(self.words)
+                anti_likelihood_term = 0
+                for word in other_words:
+                    model_selector = ModelSelector(self.words, self.hwords, word, self.n_constant, self.min_n_components, self.max_n_components, self.verbose)
+                    hmm_model = model_selector.base_model(num_states)
+                    try:
+                        anti_likelihood_term += hmm_model.score(model_selector.X, model_selector.lengths)
+                    except:
+                        m -= 1
+                ave_anti_likelihood_term = anti_likelihood_term / (m - 1)
+            dic_value = likelihood_term - ave_anti_likelihood_term
+
+            if dic_value > highest_dic_value:
+                highest_dic_value = dic_value
+                best_num_states = num_states
+        if best_num_states is not None:
+            return self.base_model(best_num_states)
+"""
+
+
+class SelectorDIC(ModelSelector):
+    ''' select best model based on Discriminative Information Criterion
+
+    Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
+    Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
+    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
+    https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
+    DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
+    '''
+
+    model_dict = {}
+    dic_value = {}
+
+    def generate_models_and_dictionary(cls, instance):
+        for num_states in range(instance.min_n_components, instance.max_n_components + 1):
+            '''
+            ## COMPRESSED FORM
+            SelectorDIC.model_dict[num_states] = {word:ModelSelector(instance.words, instance.hwords, word, instance.n_constant,
+                                               instance.min_n_components, instance.max_n_components, instance.verbose).base_model(num_states)
+                                          for word in all_words}
+            '''
+            SelectorDIC.model_dict[num_states] = {}
+            SelectorDIC.dic_value[num_states] = {}
+            other_words = set(instance.words.keys())
+            for word in instance.words.keys():
+                model_selector = ModelSelector(instance.words, instance.hwords, word, instance.n_constant,
+                                               instance.min_n_components, instance.max_n_components, instance.verbose)
+                hmm_model = model_selector.base_model(num_states)
+                try:
+                    likelihood_term = hmm_model.score(model_selector.X, model_selector.lengths)
+                except:
+                    SelectorDIC.dic_value[num_states][word] = float("-inf")
+                    continue
+                SelectorDIC.model_dict[num_states][word] = hmm_model
+                other_words.discard(word)
+                anti_likelihood_term = 0
+                item_count = 0
+                for item in other_words:
+                    try:
+                        anti_likelihood_term += SelectorDIC.model_dict[num_states][item].score(model_selector.X, model_selector.lengths)
+                        item_count += 1
+                    except:
+                        pass
+                if item_count == 0:
+                    ave_anti_likelihood_term = 0
+                else:
+                    ave_anti_likelihood_term = anti_likelihood_term / item_count
+                SelectorDIC.dic_value[num_states][word] = likelihood_term - ave_anti_likelihood_term
+                other_words.add(word)
+
+    def clear_records(self):
+        SelectorDIC.dic_value = {}
+        SelectorDIC.model_dict = {}
+
+    def select(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+        if len(SelectorDIC.model_dict) == 0:
+            self.generate_models_and_dictionary(self)
+
+        best_num_states = None
+        highest_dic_value = float("-inf")
+        for num_states in range(self.min_n_components, self.max_n_components + 1):
+            dic_value = SelectorDIC.dic_value[num_states][self.this_word]
+            if dic_value > highest_dic_value:
+                highest_dic_value = dic_value
+                best_num_states = num_states
+        if best_num_states is not None:
+            return self.base_model(best_num_states)
 
 
 class SelectorCV(ModelSelector):
-    ''' select best model based on average log Likelihood of cross-validation folds
+    '''
+    select best model based on average log Likelihood of cross-validation folds
 
     '''
 
@@ -120,7 +306,8 @@ class SelectorCV(ModelSelector):
 
         best_model = None
         best_score = float("-inf")
-        n_splits_CV = min(5, len(self.sequences))
+        max_n_split = 4
+        n_splits_CV = min(max_n_split, len(self.sequences))
         kf = KFold(n_splits = n_splits_CV)
         for num_states in range(self.min_n_components, self.max_n_components + 1):
             hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
