@@ -308,6 +308,8 @@ class SelectorCV(ModelSelector):
         best_score = float("-inf")
         max_n_split = 4
         n_splits_CV = min(max_n_split, len(self.sequences))
+        if n_splits_CV < 2:
+            return
         kf = KFold(n_splits = n_splits_CV)
         for num_states in range(self.min_n_components, self.max_n_components + 1):
             hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
