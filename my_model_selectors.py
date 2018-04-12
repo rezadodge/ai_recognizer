@@ -1,5 +1,3 @@
-import math
-import statistics
 import warnings
 
 import numpy as np
@@ -9,9 +7,9 @@ from asl_utils import combine_sequences
 
 
 class ModelSelector(object):
-    '''
+    """
     base class for model selection (strategy design pattern)
-    '''
+    """
 
     def __init__(self, all_word_sequences: dict, all_word_Xlengths: dict, this_word: str,
                  n_constant=3,
@@ -48,12 +46,13 @@ class ModelSelector(object):
 
 
 class SelectorConstant(ModelSelector):
-    """ select the model with value self.n_constant
-
+    """
+    select the model with value self.n_constant
     """
 
     def select(self):
-        """ select based on n_constant value
+        """
+        select based on n_constant value
 
         :return: GaussianHMM object
         """
@@ -62,16 +61,16 @@ class SelectorConstant(ModelSelector):
 
 
 class SelectorBIC(ModelSelector):
-    """ select the model with the lowest Bayesian Information Criterion(BIC) score
-
+    """
+    select the model with the lowest Bayesian Information Criterion(BIC) score
     http://www2.imm.dtu.dk/courses/02433/doc/ch6_slides.pdf
     Bayesian information criteria: BIC = -2 * logL + p * logN
     """
 
     def select(self):
-        """ select the best model for self.this_word based on
+        """
+        select the best model for self.this_word based on
         BIC score for n between self.min_n_components and self.max_n_components
-
         :return: GaussianHMM object
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -94,157 +93,23 @@ class SelectorBIC(ModelSelector):
 
         return best_model
 
-"""
-class SelectorDIC_1(ModelSelector):     ### PASSED THE TEST
-    ''' select best model based on Discriminative Information Criterion
-
-    Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
-    Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
-    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
-    https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
-    DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
-    '''
-
-    def select_0(self):
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-        # TODO implement model selection based on DIC scores
-        best_num_states = None
-        highest_dic_value = float("-inf")
-        for num_states in range(self.min_n_components, self.max_n_components + 1):
-
-            likelihood_term = self.base_model(num_states).score(self.X, self.lengths)
-
-            m = len(self.words)
-            all_other_words = set(self.words.keys())
-            all_other_words.discard(self.this_word)
-
-            anti_likelihood_term = 0
-            for word in all_other_words:
-                model_selector = ModelSelector(self.words, self.hwords, word, self.n_constant, self.min_n_components, self.max_n_components, self.verbose)
-                hmm_model = model_selector.base_model(num_states)
-                try:
-                    anti_likelihood_term += hmm_model.score(model_selector.X, model_selector.lengths)
-                except:
-                    m -= 1
-            dic_value = likelihood_term - anti_likelihood_term / (m - 1)
-
-
-            if dic_value > highest_dic_value:
-                highest_dic_value = dic_value
-                best_num_states = num_states
-        if best_num_states is not None:
-            return self.base_model(best_num_states)
-
-    def select(self):
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-        # TODO implement model selection based on DIC scores
-        best_num_states = None
-        highest_dic_value = float("-inf")
-        for num_states in range(self.min_n_components, self.max_n_components + 1):
-            likelihood_term = anti_likelihood_term = 0
-            try:
-                likelihood_term = self.base_model(num_states).score(self.X, self.lengths)
-            except:
-                continue
-
-            all_other_words = set(self.words.keys())
-            m = len(all_other_words)
-            all_other_words.discard(self.this_word)
-
-            for word in all_other_words:
-                model_selector = ModelSelector(self.words, self.hwords, word, self.n_constant, self.min_n_components, self.max_n_components, self.verbose)
-                hmm_model = model_selector.base_model(num_states)
-                try:
-                    anti_likelihood_term += hmm_model.score(model_selector.X, model_selector.lengths)
-                except:
-                    m -= 1
-            dic_value = likelihood_term - anti_likelihood_term / (m - 1)
-
-
-            if dic_value > highest_dic_value:
-                highest_dic_value = dic_value
-                best_num_states = num_states
-        if best_num_states is not None:
-            return self.base_model(best_num_states)
-
-
-class SelectorDIC_2(ModelSelector):       #### PASSED THE TEST
-    ''' select best model based on Discriminative Information Criterion
-
-    Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
-    Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
-    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
-    https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
-    DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
-    '''
-
-    def select(self):
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-        # TODO implement model selection based on DIC scores
-        best_num_states = None
-        highest_dic_value = float("-inf")
-        for num_states in range(self.min_n_components, self.max_n_components + 1):
-
-            try:
-                likelihood_term = self.base_model(num_states).score(self.X, self.lengths)
-            except:
-                continue
-
-            other_words = set(self.words.keys())
-            other_words.discard(self.this_word)
-
-            model_selector = lambda word: ModelSelector(self.words, self.hwords, word,
-                                                        self.n_constant, self.min_n_components,
-                                                        self.max_n_components, self.verbose)
-            try:
-                ave_anti_likelihood_term = \
-                    np.average([model_selector(word).base_model(num_states).score(
-                        model_selector(word).X, model_selector(word).lengths) for word in other_words])
-            except:
-                m = len(self.words)
-                anti_likelihood_term = 0
-                for word in other_words:
-                    model_selector = ModelSelector(self.words, self.hwords, word, self.n_constant, self.min_n_components, self.max_n_components, self.verbose)
-                    hmm_model = model_selector.base_model(num_states)
-                    try:
-                        anti_likelihood_term += hmm_model.score(model_selector.X, model_selector.lengths)
-                    except:
-                        m -= 1
-                ave_anti_likelihood_term = anti_likelihood_term / (m - 1)
-            dic_value = likelihood_term - ave_anti_likelihood_term
-
-            if dic_value > highest_dic_value:
-                highest_dic_value = dic_value
-                best_num_states = num_states
-        if best_num_states is not None:
-            return self.base_model(best_num_states)
-"""
-
 
 class SelectorDIC(ModelSelector):
-    ''' select best model based on Discriminative Information Criterion
+    """
+    select best model based on Discriminative Information Criterion
 
     Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
     Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
     https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
     DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
-    '''
+    """
 
     model_dict = {}
     dic_value = {}
 
     def generate_models_and_dictionary(cls, instance):
         for num_states in range(instance.min_n_components, instance.max_n_components + 1):
-            '''
-            ## COMPRESSED FORM
-            SelectorDIC.model_dict[num_states] = {word:ModelSelector(instance.words, instance.hwords, word, instance.n_constant,
-                                               instance.min_n_components, instance.max_n_components, instance.verbose).base_model(num_states)
-                                          for word in all_words}
-            '''
             SelectorDIC.model_dict[num_states] = {}
             SelectorDIC.dic_value[num_states] = {}
             other_words = set(instance.words.keys())
@@ -263,7 +128,8 @@ class SelectorDIC(ModelSelector):
                 item_count = 0
                 for item in other_words:
                     try:
-                        anti_likelihood_term += SelectorDIC.model_dict[num_states][item].score(model_selector.X, model_selector.lengths)
+                        anti_likelihood_term += SelectorDIC.model_dict[num_states][item].score(model_selector.X,
+                                                                                               model_selector.lengths)
                         item_count += 1
                     except:
                         pass
@@ -296,10 +162,9 @@ class SelectorDIC(ModelSelector):
 
 
 class SelectorCV(ModelSelector):
-    '''
+    """
     select best model based on average log Likelihood of cross-validation folds
-
-    '''
+    """
 
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
